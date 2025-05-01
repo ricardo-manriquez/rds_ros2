@@ -193,14 +193,14 @@ void RDSNode::cmdvel_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
 		v_corrected_p_ref.x = -new_v_angular*y_p_ref;//rds_5_config.y_p_ref;
 	}
 
-	// communicate the result and the underlying representations 
+	// communicate the result and the underlying representations
     auto pub_vel = geometry_msgs::msg::Twist();
     pub_vel.linear.x = v_corrected_p_ref.y;
     pub_vel.angular.z = -1.0/y_p_ref*v_corrected_p_ref.x;
 
 	command_correct_previous_linear = v_corrected_p_ref.y;
 	command_correct_previous_angular = -1.0/y_p_ref*v_corrected_p_ref.x;
-	
+
     publisher_cmd_vel->publish(pub_vel);
 }
 
@@ -209,24 +209,34 @@ RDSNode::RDSNode(AggregatorTwoLRF& agg) :
 	m_aggregator_two_lrf(agg),
 	tf_buffer(this->get_clock())
 {
+    this->declare_parameter("front_lidar", "front_lidar/scan");
+    this->declare_parameter("rear_lidar", "rear_lidar/scan");
+    this->declare_parameter("cmd_vel_in", "cmd_vel_in");
+    this->declare_parameter("cmd_vel_out", "cmd_vel_out");
+
+    std::string front_lidar = this->get_parameter("front_lidar").as_string();
+    std::string rear_lidar = this->get_parameter("rear_lidar").as_string();
+    std::string cmd_vel_in = this->get_parameter("cmd_vel_in").as_string();
+    std::string cmd_vel_out = this->get_parameter("cmd_vel_out").as_string();
+
 	auto default_qos = rclcpp::QoS(rclcpp::SensorDataQoS());
 	subscriber_lrf_front = this->create_subscription<sensor_msgs::msg::LaserScan>(
-		"front_lidar/scan",
+		front_lidar,
 		default_qos,
 		std::bind(&AggregatorTwoLRF::callbackLRFFront, &m_aggregator_two_lrf, std::placeholders::_1)
 	);
 	subscriber_lrf_rear = this->create_subscription<sensor_msgs::msg::LaserScan>(
-		"rear_lidar/scan",
+		rear_lidar,
 		default_qos,
 		std::bind(&AggregatorTwoLRF::callbackLRFRear, &m_aggregator_two_lrf, std::placeholders::_1)
 	);
 	subscriber_cmd_vel = this->create_subscription<geometry_msgs::msg::Twist>(
-		"cmd_vel",
+		cmd_vel_in,
 		10,
 		std::bind(&RDSNode::cmdvel_callback, this, std::placeholders::_1)
 	);
 	publisher_cmd_vel = this->create_publisher<geometry_msgs::msg::Twist>(
-		"cmd_vel_out",
+		cmd_vel_out,
 		10
 	);
 	tf_listener = std::make_shared<tf2_ros::TransformListener>(tf_buffer, this, false);
@@ -246,7 +256,7 @@ RDSNode::RDSNode(AggregatorTwoLRF& agg) :
     this->declare_parameter("acc_limit_angular_abs_max", 0.5);
     this->declare_parameter("dt", 0.01);
     this->declare_parameter("lrf_point_obstacles", true);
-    
+
    capsule_center_front_y = this->get_parameter("capsule_center_front_y").as_double();
    capsule_center_rear_y = this->get_parameter("capsule_center_rear_y").as_double();
    capsule_radius = this->get_parameter("capsule_radius").as_double();

@@ -5,6 +5,7 @@
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <vector>
 
+#include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
 class AggregatorTwoLRF

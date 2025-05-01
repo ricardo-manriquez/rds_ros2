@@ -45,7 +45,7 @@ void AggregatorTwoLRF::getPointsFromLRF(const sensor_msgs::msg::LaserScan::Share
 	catch (tf2::TransformException &ex)
 	{
         if (m_node) {
-            RCLCPP_WARN(m_node->get_logger(), "%s exception, when looking up tf from %s to tf_rds", ex.what(), lrf_msg->header.frame_id);
+            RCLCPP_WARN(m_node->get_logger(), "%s exception, when looking up tf from %s to tf_rds", ex.what(), lrf_msg->header.frame_id.c_str());
         }
 		return;
 	}
