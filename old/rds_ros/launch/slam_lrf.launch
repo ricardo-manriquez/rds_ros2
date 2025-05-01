@@ -1,0 +1,7 @@
+<launch>
+  
+  <include file="$(find rds_ros)/launch/front_lrf_cloud.launch"/>
+
+  <include file="$(find hector_mapping)/launch/mapping_qolo.launch"/>
+
+</launch>
