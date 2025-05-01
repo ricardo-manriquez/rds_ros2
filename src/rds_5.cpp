@@ -1,7 +1,6 @@
 #include "rds_5.hpp"
 #include "my_rvo.hpp"
 #include "distance_minimizer.hpp"
-#include <Agent.h> // from RVO2
 #include <cmath>
 #include <iostream>
 
