@@ -44,7 +44,9 @@ void AggregatorTwoLRF::getPointsFromLRF(const sensor_msgs::msg::LaserScan::Share
 	}
 	catch (tf2::TransformException &ex)
 	{
-// TODO		RCLCPP_WARN("%s exception, when looking up tf from %s to tf_rds", ex.what(), lrf_msg->header.frame_id);
+        if (m_node) {
+            RCLCPP_WARN(m_node->get_logger(), "%s exception, when looking up tf from %s to tf_rds", ex.what(), lrf_msg->header.frame_id);
+        }
 		return;
 	}
 
@@ -93,8 +95,8 @@ AggregatorTwoLRF::AggregatorTwoLRF(float angle_cutoff_lrf_front, float range_cut
 
 void AggregatorTwoLRF::initialize(std::shared_ptr<rclcpp::Node> node) {
 	this->tf_buffer = std::make_shared<tf2_ros::Buffer>(node->get_clock());
-	this->tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer, node);
-
+	this->tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer, node, false);
+    m_node = node;
 }
 
 void AggregatorTwoLRF::callbackLRFFront(const sensor_msgs::msg::LaserScan::SharedPtr lrf_msg)

@@ -5,10 +5,9 @@
 #include "geometry.hpp"
 #include "rds_5.hpp"
 
-//#include <rds_network_ros/VelocityCommandCorrectionRDS.h>
-
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/laser_scan.h>
+#include <geometry_msgs/msg/twist.hpp>
 
 #include <tf2_ros/transform_listener.h>
 #include <tf2/LinearMath/Transform.h>
@@ -56,11 +55,16 @@ public:
 
 	int makeLocalPersons(const std::vector<MovingObject3>& persons_global,
 		const std::string& tracks_frame_id, std::vector<MovingCircle>* persons_local);
+
 #endif
+	void cmdvel_callback(const geometry_msgs::msg::Twist::SharedPtr msg);
 
 	AggregatorTwoLRF& m_aggregator_two_lrf;
 	rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr subscriber_lrf_front;
 	rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr subscriber_lrf_rear;
+
+	rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr subscriber_cmd_vel;
+	rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr publisher_cmd_vel;
 
 #ifdef RDS_ROS_USE_TRACKER
 //	ros::Subscriber subscriber_tracker;
@@ -77,7 +81,11 @@ public:
 	tf2_ros::Buffer tf_buffer;
 	std::shared_ptr<tf2_ros::TransformListener> tf_listener;
 	float command_correct_previous_linear, command_correct_previous_angular;
-	unsigned int call_counter;
+private:
+    float capsule_center_front_y, capsule_center_rear_y, capsule_radius, reference_point_y,\
+          rds_tau, rds_delta, vel_lim_linear_min, vel_lim_linear_max, vel_lim_angular_abs_max,\
+          vel_linear_at_angular_abs_max, acc_limit_linear_abs_max, acc_limit_angular_abs_max, dt;
+    bool lrf_point_obstacles;
 };
 
 #endif

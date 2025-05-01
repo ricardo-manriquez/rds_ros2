@@ -4,12 +4,8 @@
 #include "config_rds_5.hpp"
 #include "distance_minimizer.hpp"
 
-//#include <rds_network_ros/ToGui.h>
-//#include <rds_network_ros/HalfPlane2D.h>
-//#include <rds_network_ros/Point2D.h>
-//#include <rds_network_ros/Circle.h>
-
 #include <geometry_msgs/msg/transform_stamped.hpp>
+#include <geometry_msgs/msg/twist.hpp>
 
 #define _USE_MATH_DEFINES
 #include <cmath>
@@ -58,7 +54,7 @@ using AdditionalPrimitives2D::Circle;
 		}
 		catch (tf2::TransformException &ex)
 		{
-			ROS_WARN("%s excpetion, when looking up tf from %s to %s", ex.what(), frame_id_1.c_str(), frame_id_2.c_str());
+			RCLCPP_WARN(this->get_logger(), "%s excpetion, when looking up tf from %s to %s", ex.what(), frame_id_1.c_str(), frame_id_2.c_str());
 			return 1;
 		}
 
@@ -109,49 +105,48 @@ using AdditionalPrimitives2D::Circle;
 	}
 #endif
 
-/*bool RDSNode::commandCorrectionService(rds_network_ros::VelocityCommandCorrectionRDS::Request& request,
-	rds_network_ros::VelocityCommandCorrectionRDS::Response& response)
+void RDSNode::cmdvel_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
 {
 	// prepare pedestrian tracks/ scan points retrieved from recent messages
 	std::vector<MovingCircle> lrf_moving_objects;
 	std::vector<MovingCircle> all_moving_objects;
-	if (request.lrf_point_obstacles)
+	if (lrf_point_obstacles)
 	{
 		MovingCircle moving_object;
 		moving_object.velocity = Vec2(0.0, 0.0);
 		moving_object.circle.radius = 0.0;
-		for (int i = 0; i < m_aggregator_two_lrf.size(); i++)
+		for (unsigned int i = 0; i < m_aggregator_two_lrf.size(); i++)
 		{
 			moving_object.circle.center = m_aggregator_two_lrf.getPoint(i);
 			lrf_moving_objects.push_back(moving_object);
 			all_moving_objects.push_back(moving_object);
 		}
 	}
-	
+
 #ifdef RDS_ROS_USE_TRACKER
 	m_person_tracks.updatePositions(std::chrono::high_resolution_clock::now());
 	if (makeLocalPersons(m_person_tracks.getPersonsGlobal(),
 		m_person_tracks.getFrameId(), &m_person_tracks.persons_local) != 0)
-		ROS_WARN("Using old local person positions (could be none).");
+		RCLCPP_WARN(this->get_logger(), "Using old local person positions (could be none).");
 	for (auto& pedestrian : m_person_tracks.persons_local)
 		all_moving_objects.push_back(pedestrian);
 #endif
 
 	// parse service parameters
-	float a_v_min = command_correct_previous_linear - request.dt*request.acc_limit_linear_abs_max;
-	float a_v_max = command_correct_previous_linear + request.dt*request.acc_limit_linear_abs_max;
-	float a_w_min = command_correct_previous_angular - request.dt*request.acc_limit_angular_abs_max;
-	float a_w_max = command_correct_previous_angular + request.dt*request.acc_limit_angular_abs_max;
+	float a_v_min = command_correct_previous_linear - dt*acc_limit_linear_abs_max;
+	float a_v_max = command_correct_previous_linear + dt*acc_limit_linear_abs_max;
+	float a_w_min = command_correct_previous_angular - dt*acc_limit_angular_abs_max;
+	float a_w_max = command_correct_previous_angular + dt*acc_limit_angular_abs_max;
 	VWBox vw_box_limits(a_v_min, a_v_max, a_w_min, a_w_max);
 
-	VWDiamond vw_diamond_limits(request.vel_lim_linear_min, request.vel_lim_linear_max,
-		request.vel_lim_angular_abs_max, request.vel_linear_at_angular_abs_max);
+	VWDiamond vw_diamond_limits(vel_lim_linear_min, vel_lim_linear_max,
+		vel_lim_angular_abs_max, vel_linear_at_angular_abs_max);
 
-	const RDS5CapsuleConfiguration rds_5_config = ConfigRDS5::ConfigWrap(request.dt).rds_5_config;
+	const RDS5CapsuleConfiguration rds_5_config = ConfigRDS5::ConfigWrap(dt).rds_5_config;
 
-	float tau = request.rds_tau;// rds_5_config.tau;
-	float delta = request.rds_delta;// rds_5_config.delta;
-	float y_p_ref = request.reference_point_y;// rds_5_config.y_p_ref;
+	float tau = rds_tau;// rds_5_config.tau;
+	float delta = rds_delta;// rds_5_config.delta;
+	float y_p_ref = reference_point_y;// rds_5_config.y_p_ref;
 
 	Geometry2D::RDS5 rds_5(tau, delta, y_p_ref, vw_box_limits, vw_diamond_limits);
 
@@ -159,19 +154,13 @@ using AdditionalPrimitives2D::Circle;
 	rds_5.keep_origin_feasible = false;
 	rds_5.no_VO_shift_at_contact = false;
 	rds_5.shift_reduction_range = 0.35f;
-	rds_5.ORCA_implementation = request.ORCA_implementation;
 	rds_5.ORCA_use_p_ref = true;
 	rds_5.ORCA_solver = true;
-
-	float capsule_radius = request.capsule_radius;//rds_5_config.robot_shape.radius();
-	float capsule_center_front_y = request.capsule_center_front_y;// rds_5_config.robot_shape.center_a().y;
-	float capsule_center_rear_y = request.capsule_center_rear_y;//rds_5_config.robot_shape.center_b().y;
 
 	Capsule robot_shape(capsule_radius, Vec2(0.0, capsule_center_front_y),
 		Vec2(0.0, capsule_center_rear_y)); //0.45, 0.05, -0.5
 
-	Vec2 v_nominal_p_ref(-y_p_ref*request.nominal_command.angular,
-		request.nominal_command.linear);
+	Vec2 v_nominal_p_ref(-y_p_ref*msg->angular.z, msg->linear.x);
 
 	Vec2 v_previous_command(-command_correct_previous_angular*y_p_ref,
 		command_correct_previous_linear);
@@ -189,8 +178,8 @@ using AdditionalPrimitives2D::Circle;
 	}
 	catch (Geometry2D::DistanceMinimizer::InfeasibilityException e)
 	{
-		float breaking_step_linear = request.dt*rds_5_config.breaking_deceleration_linear;
-		float breaking_step_angular = request.dt*rds_5_config.breaking_deceleration_angular;
+		float breaking_step_linear = dt*rds_5_config.breaking_deceleration_linear;
+		float breaking_step_angular = dt*rds_5_config.breaking_deceleration_angular;
 		float new_v_linear, new_v_angular;
 		if (command_correct_previous_linear > 0.f)
 			new_v_linear = std::max(0.f, command_correct_previous_linear - breaking_step_linear);
@@ -205,114 +194,73 @@ using AdditionalPrimitives2D::Circle;
 	}
 
 	// communicate the result and the underlying representations 
-	response.corrected_command.linear = v_corrected_p_ref.y;
-	response.corrected_command.angular = -1.0/y_p_ref*v_corrected_p_ref.x;
+    auto pub_vel = geometry_msgs::msg::Twist();
+    pub_vel.linear.x = v_corrected_p_ref.y;
+    pub_vel.angular.z = -1.0/y_p_ref*v_corrected_p_ref.x;
+
+	command_correct_previous_linear = v_corrected_p_ref.y;
+	command_correct_previous_angular = -1.0/y_p_ref*v_corrected_p_ref.x;
 	
-	command_correct_previous_linear = response.corrected_command.linear;
-	command_correct_previous_angular = response.corrected_command.angular;
-
-	call_counter++;
-	response.call_counter = call_counter;
-
-	rds_network_ros::ToGui msg_to_gui;
-	msg_to_gui.nominal_command.linear = request.nominal_command.linear;
-	msg_to_gui.nominal_command.angular = request.nominal_command.angular;
-	msg_to_gui.corrected_command.linear = response.corrected_command.linear;
-	msg_to_gui.corrected_command.angular = response.corrected_command.angular;
-	msg_to_gui.reference_point.x = 0.f;
-	msg_to_gui.reference_point.y = y_p_ref;
-	msg_to_gui.reference_point_velocity_solution.x = v_corrected_p_ref.x;
-	msg_to_gui.reference_point_velocity_solution.y = v_corrected_p_ref.y;
-	msg_to_gui.reference_point_nominal_velocity.x = v_nominal_p_ref.x;
-	msg_to_gui.reference_point_nominal_velocity.y = v_nominal_p_ref.y;
-	rds_network_ros::HalfPlane2D h_msg;
-	for (auto& h : rds_5.constraints)
-	{
-		h_msg.normal.x = h.getNormal().x;
-		h_msg.normal.y = h.getNormal().y;
-		h_msg.offset = h.getOffset();
-		msg_to_gui.reference_point_velocity_constraints.push_back(h_msg);
-	}
-
-	rds_network_ros::Circle c_msg;
-	for (auto & mo : all_moving_objects)
-	{
-		c_msg.center.x = mo.circle.center.x;
-		c_msg.center.y = mo.circle.center.y;
-		c_msg.radius = mo.circle.radius + delta;
-		msg_to_gui.moving_objects.push_back(c_msg);
-	}
-	rds_network_ros::Point2D head_msg, tail_msg;
-	for (auto & mo : all_moving_objects)
-	{
-		if ((mo.velocity.x != 0.f) || (mo.velocity.y != 0.f))
-		{
-			head_msg.x = mo.circle.center.x + mo.velocity.x*tau;
-			head_msg.y = mo.circle.center.y + mo.velocity.y*tau;
-			tail_msg.x = mo.circle.center.x;
-			tail_msg.y = mo.circle.center.y;
-			msg_to_gui.moving_objects_predictions.push_back(head_msg);
-			msg_to_gui.moving_objects_predictions.push_back(tail_msg);
-		}
-	}
-
-	msg_to_gui.robot_shape.radius = robot_shape.radius();
-	msg_to_gui.robot_shape.center_a.x = robot_shape.center_a().x;
-	msg_to_gui.robot_shape.center_a.y = robot_shape.center_a().y;
-	msg_to_gui.robot_shape.center_b.x = robot_shape.center_b().x;
-	msg_to_gui.robot_shape.center_b.y = robot_shape.center_b().y;
-
-	if (rds_5.n_bounding_circles > 2)
-	{
-		rds_network_ros::Circle bc_msg;
-		for (const auto& bc : rds_5.bounding_circles.circles())
-		{
-			bc_msg.center.x = bc.center.x;
-			bc_msg.center.y = bc.center.y;
-			bc_msg.radius = bc.radius;
-			msg_to_gui.bounding_circles.push_back(bc_msg);
-		}
-	}
-
-	publisher_for_gui.publish(msg_to_gui);
-
-	return true;
-}*/
+    publisher_cmd_vel->publish(pub_vel);
+}
 
 RDSNode::RDSNode(AggregatorTwoLRF& agg) :
 	Node("rds_ros2_node"),
 	m_aggregator_two_lrf(agg),
 	tf_buffer(this->get_clock())
-
-/*	, subscriber_lrf_front(this->create_subscription<sensor_msgs::msg::LaserScan>("front_lidar/scan"//"sick_laser_front/cropped_scan"//
-		, 1, &AggregatorTwoLRF::callbackLRFFront, &m_aggregator_two_lrf))
-	, subscriber_lrf_rear(this->create_subscription<sensor_msgs::msg::LaserScan>("rear_lidar/scan"//"sick_laser_rear/cropped_scan"//
-		, 1, &AggregatorTwoLRF::callbackLRFRear, &m_aggregator_two_lrf))
-#ifdef RDS_ROS_USE_TRACKER
-	, subscriber_tracker(n->subscribe<frame_msgs::TrackedPersons>("rwth_tracker/tracked_persons"
-		, 1, &RDSNode::callbackTracker, this) )
-#endif
-	, publisher_for_gui(n->advertise<rds_network_ros::ToGui>("rds_to_gui", 1)) 
-	, command_correction_server(n->advertiseService("rds_velocity_command_correction",
-		&RDSNode::commandCorrectionService, this))
-	, tf_listener(tf_buffer)
-	, command_correct_previous_linear(0.f)
-	, command_correct_previous_angular(0.f)
-	, call_counter(0)*/
 {
 	auto default_qos = rclcpp::QoS(rclcpp::SensorDataQoS());
 	subscriber_lrf_front = this->create_subscription<sensor_msgs::msg::LaserScan>(
 		"front_lidar/scan",
 		default_qos,
-		std::bind(&AggregatorTwoLRF::callbackLRFFront, &m_aggregator_two_lrf, std::placeholders::_1));
+		std::bind(&AggregatorTwoLRF::callbackLRFFront, &m_aggregator_two_lrf, std::placeholders::_1)
+	);
 	subscriber_lrf_rear = this->create_subscription<sensor_msgs::msg::LaserScan>(
 		"rear_lidar/scan",
 		default_qos,
-		std::bind(&AggregatorTwoLRF::callbackLRFRear, &m_aggregator_two_lrf, std::placeholders::_1));
-	tf_listener = std::make_shared<tf2_ros::TransformListener>(tf_buffer, this);
+		std::bind(&AggregatorTwoLRF::callbackLRFRear, &m_aggregator_two_lrf, std::placeholders::_1)
+	);
+	subscriber_cmd_vel = this->create_subscription<geometry_msgs::msg::Twist>(
+		"cmd_vel",
+		10,
+		std::bind(&RDSNode::cmdvel_callback, this, std::placeholders::_1)
+	);
+	publisher_cmd_vel = this->create_publisher<geometry_msgs::msg::Twist>(
+		"cmd_vel_out",
+		10
+	);
+	tf_listener = std::make_shared<tf2_ros::TransformListener>(tf_buffer, this, false);
 	command_correct_previous_linear = 0.f;
 	command_correct_previous_angular = 0.f;
-	call_counter = 0;
+    this->declare_parameter("capsule_center_front_y", 0.18);
+    this->declare_parameter("capsule_center_rear_y", -0.5);
+    this->declare_parameter("capsule_radius", 0.45);
+    this->declare_parameter("reference_point_y", 0.18);
+    this->declare_parameter("rds_tau", 1.5);
+    this->declare_parameter("rds_delta", 0.05);
+    this->declare_parameter("vel_lim_linear_min", -0.5);
+    this->declare_parameter("vel_lim_linear_max", 1.5);
+    this->declare_parameter("vel_lim_angular_abs_max", 1.0);
+    this->declare_parameter("vel_linear_at_angular_abs_max", 0.2);
+    this->declare_parameter("acc_limit_linear_abs_max", 0.5);
+    this->declare_parameter("acc_limit_angular_abs_max", 0.5);
+    this->declare_parameter("dt", 0.01);
+    this->declare_parameter("lrf_point_obstacles", true);
+    
+   capsule_center_front_y = this->get_parameter("capsule_center_front_y").as_double();
+   capsule_center_rear_y = this->get_parameter("capsule_center_rear_y").as_double();
+   capsule_radius = this->get_parameter("capsule_radius").as_double();
+   reference_point_y = this->get_parameter("reference_point_y").as_double();
+   rds_tau = this->get_parameter("rds_tau").as_double();
+   rds_delta = this->get_parameter("rds_delta").as_double();
+   vel_lim_linear_min = this->get_parameter("vel_lim_linear_min").as_double();
+   vel_lim_linear_max = this->get_parameter("vel_lim_linear_max").as_double();
+   vel_lim_angular_abs_max = this->get_parameter("vel_lim_angular_abs_max").as_double();
+   vel_linear_at_angular_abs_max = this->get_parameter("vel_linear_at_angular_abs_max").as_double();
+   acc_limit_linear_abs_max = this->get_parameter("acc_limit_linear_abs_max").as_double();
+   acc_limit_angular_abs_max = this->get_parameter("acc_limit_angular_abs_max").as_double();
+   dt = this->get_parameter("dt").as_double();
+   lrf_point_obstacles = this->get_parameter("lrf_point_obstacles").as_bool();
 }
 
 int main(int argc, char** argv)

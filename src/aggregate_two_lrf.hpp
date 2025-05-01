@@ -47,6 +47,7 @@ private:
 	void getPointsFromLRF(const sensor_msgs::msg::LaserScan::SharedPtr lrf_msg,
 		float angle_cutoff, float range_cutoff_lower, float range_cutoff_upper,
 		std::vector<Geometry2D::Vec2>* result_points);
+    std::shared_ptr<rclcpp::Node> m_node=nullptr;
 };
 
 /*struct AggregatorTwoLRFDepthCamera : public AggregatorTwoLRF
