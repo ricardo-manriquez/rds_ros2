@@ -278,12 +278,12 @@ int main(int argc, char** argv)
 	rclcpp::init(argc, argv);
 
 	AggregatorTwoLRF aggregator_two_lrf(
-		3.f*M_PI/4.f,
+		3.f*M_PI/2.f,
 		0.05,
-		100.f,
-		3.f*M_PI/4.f,
+		20.f,
+		3.f*M_PI/2.f,
 		0.05,
-		100.f);
+		20.f);
 	auto node = std::make_shared<RDSNode>(aggregator_two_lrf);
 	aggregator_two_lrf.initialize(node);
 	rclcpp::spin(node);

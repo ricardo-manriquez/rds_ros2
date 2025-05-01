@@ -32,6 +32,9 @@ add_executable(rds_ros2
 	src/distance_minimizer.cpp
 	src/my_rvo.cpp
 )
+
+target_link_libraries(rds_ros2 RVO)
+
 ament_target_dependencies(rds_ros2 rclcpp sensor_msgs geometry_msgs tf2_ros)
 
 if(BUILD_TESTING)
