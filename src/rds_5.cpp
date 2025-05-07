@@ -162,10 +162,11 @@ namespace Geometry2D
 
 		const Vec2& n(crvo.getNormal());
 		Vec2 n_constraint_tmp(n.x*robot_point.y/p_ref.y + n.y*(p_ref.x - robot_point.x)/p_ref.y, n.y);
-		
+
 		float b = crvo.getOffset();
-		if ((v_p_ref_radial_max + 0.01f)*n_constraint_tmp.norm() > b)
+		if ((v_p_ref_radial_max + 0.01f)*n_constraint_tmp.norm() > b) {
 			constraints->push_back(HalfPlane2(n_constraint_tmp, b/n_constraint_tmp.norm()));
+		}
 		float normal_limit = 1.f*robot_radius/tau/v_p_ref_radial_max;
 		if (std::abs(n_constraint_tmp.x) < normal_limit)
 		{
