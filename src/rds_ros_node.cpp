@@ -117,7 +117,9 @@ void RDSNode::cmdvel_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
 		moving_object.circle.radius = 0.0;
 		for (unsigned int i = 0; i < m_aggregator_two_lrf.size(); i++)
 		{
-			moving_object.circle.center = m_aggregator_two_lrf.getPoint(i);
+			moving_object.circle.center.x = -m_aggregator_two_lrf.getPoint(i).y;
+			moving_object.circle.center.y = m_aggregator_two_lrf.getPoint(i).x;
+			//std::cout << "X: " << moving_object.circle.center.x << " Y: " << moving_object.circle.center.y << std::endl;
 			lrf_moving_objects.push_back(moving_object);
 			all_moving_objects.push_back(moving_object);
 		}

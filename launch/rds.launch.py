@@ -25,7 +25,7 @@ def generate_launch_description():
         parameters=[
             {'front_lidar': '/scan_filtered'},
             {'cmd_vel_in': '/cmd_vel'},
-            {'cmd_vel_out': '/cmd_vel_rds'},
+            {'cmd_vel_out': '/cmd_vel_internal'},
             {'reference_point_y': 0.177},
             {'capsule_center_front_y': 0.177},
             {'capsule_center_rear_y': -0.229},
